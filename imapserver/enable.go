@@ -26,7 +26,11 @@ func (c *Conn) handleEnable(dec *imapwire.Decoder) error {
 	var enabled []imap.Cap
 	for _, req := range requested {
 		switch req {
-		case imap.CapIMAP4rev2, imap.CapUTF8Accept:
+		case imap.CapIMAP4rev2:
+			if c.server.options.caps().Has(req) {
+				enabled = append(enabled, req)
+			}
+		case imap.CapUTF8Accept:
 			enabled = append(enabled, req)
 		}
 	}
