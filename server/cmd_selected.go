@@ -175,11 +175,14 @@ func (cmd *Fetch) handle(uid bool, conn Conn) error {
 	})()
 
 	err := ctx.Mailbox.ListMessages(uid, cmd.SeqSet, cmd.Items, ch)
+	// Even a failed FETCH can have emitted messages. Finish writing its stream
+	// before a response hook sends a replacement reply or closes the socket.
+	writeErr := <-done
 	if err != nil {
 		return err
 	}
 
-	return <-done
+	return writeErr
 }
 
 func (cmd *Fetch) Handle(conn Conn) error {

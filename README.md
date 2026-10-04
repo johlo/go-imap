@@ -12,6 +12,9 @@ protocol fault injection. Upstream packages, tests and the MIT license remain.
 - `Server.CommandHook` runs before normal handling; errors use ordinary IMAP
   status handling, including `imap.ErrStatusResp` for a custom or suppressed reply.
 - `Server.ResponseHook` can replace or suppress a command's completion response.
+  FETCH finishes its response stream before this hook runs, even on a backend
+  error. `ListMessages` must send messages through its channel and close it;
+  defer custom socket replies or disconnects to `ResponseHook`.
 - `Server.LoginHook` intercepts LOGIN and SASL PLAIN after the username is known
   and before credentials are checked.
 - `Server.CapabilitiesHook` filters advertised lists without changing internal
