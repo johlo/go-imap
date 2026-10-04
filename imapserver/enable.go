@@ -1,9 +1,9 @@
 package imapserver
 
 import (
-	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-imap/v2/internal"
-	"github.com/emersion/go-imap/v2/internal/imapwire"
+	"github.com/johlo/go-imap/v2"
+	"github.com/johlo/go-imap/v2/internal"
+	"github.com/johlo/go-imap/v2/internal/imapwire"
 )
 
 func (c *Conn) handleEnable(dec *imapwire.Decoder) error {
@@ -26,7 +26,11 @@ func (c *Conn) handleEnable(dec *imapwire.Decoder) error {
 	var enabled []imap.Cap
 	for _, req := range requested {
 		switch req {
-		case imap.CapIMAP4rev2, imap.CapUTF8Accept:
+		case imap.CapIMAP4rev2:
+			if c.server.options.caps().Has(req) {
+				enabled = append(enabled, req)
+			}
+		case imap.CapUTF8Accept:
 			enabled = append(enabled, req)
 		}
 	}

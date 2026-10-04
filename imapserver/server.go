@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/emersion/go-imap/v2"
+	"github.com/johlo/go-imap/v2"
 )
 
 var errClosed = errors.New("imapserver: server closed")
@@ -25,6 +25,12 @@ type Logger interface {
 //
 // The only required field is NewSession.
 type Options struct {
+	// Optional protocol hooks. Configure them before serving connections.
+	GreetingHook     func(*Conn) error
+	CommandHook      func(*Conn, *Command) error
+	ResponseHook     func(*Conn, *Command, *imap.StatusResponse) *imap.StatusResponse
+	CapabilitiesHook func(*Conn, []imap.Cap) []imap.Cap
+
 	// NewSession is called when a client connects.
 	NewSession func(*Conn) (Session, *GreetingData, error)
 	// Supported capabilities. If nil, only IMAP4rev1 is advertised. This set

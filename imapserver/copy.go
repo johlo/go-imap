@@ -1,8 +1,8 @@
 package imapserver
 
 import (
-	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-imap/v2/internal/imapwire"
+	"github.com/johlo/go-imap/v2"
+	"github.com/johlo/go-imap/v2/internal/imapwire"
 )
 
 func (c *Conn) handleCopy(tag string, dec *imapwire.Decoder, numKind NumKind) error {
@@ -30,6 +30,9 @@ func (c *Conn) handleCopy(tag string, dec *imapwire.Decoder, numKind NumKind) er
 }
 
 func (c *Conn) writeCopyOK(tag string, data *imap.CopyData) error {
+	if handled, err := c.interceptCompletion(tag, &imap.StatusResponse{Type: imap.StatusResponseTypeOK, Text: "COPY completed"}); handled {
+		return err
+	}
 	enc := newResponseEncoder(c)
 	defer enc.end()
 

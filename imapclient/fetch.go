@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-imap/v2/internal"
-	"github.com/emersion/go-imap/v2/internal/imapwire"
+	"github.com/johlo/go-imap/v2"
+	"github.com/johlo/go-imap/v2/internal"
+	"github.com/johlo/go-imap/v2/internal/imapwire"
 	"github.com/emersion/go-message/mail"
 )
 

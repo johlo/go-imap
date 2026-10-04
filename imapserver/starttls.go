@@ -6,8 +6,8 @@ import (
 	"io"
 	"net"
 
-	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-imap/v2/internal/imapwire"
+	"github.com/johlo/go-imap/v2"
+	"github.com/johlo/go-imap/v2/internal/imapwire"
 )
 
 func (c *Conn) canStartTLS() bool {
@@ -18,6 +18,9 @@ func (c *Conn) canStartTLS() bool {
 func (c *Conn) handleStartTLS(tag string, dec *imapwire.Decoder) error {
 	if !dec.ExpectCRLF() {
 		return dec.Err()
+	}
+	if err := c.beforeCommand(); err != nil {
+		return err
 	}
 
 	if c.server.options.TLSConfig == nil {
@@ -31,6 +34,10 @@ func (c *Conn) handleStartTLS(tag string, dec *imapwire.Decoder) error {
 			Type: imap.StatusResponseTypeBad,
 			Text: "STARTTLS not available",
 		}
+	}
+
+	if handled, err := c.interceptCompletion(tag, &imap.StatusResponse{Type: imap.StatusResponseTypeOK, Text: "Begin TLS negotiation now"}); handled {
+		return err
 	}
 
 	// Do not allow to write cleartext data past this point: keep c.encMutex

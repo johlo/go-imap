@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-imap/v2/internal/imapwire"
+	"github.com/johlo/go-imap/v2"
+	"github.com/johlo/go-imap/v2/internal/imapwire"
 )
 
 const (
@@ -44,8 +44,10 @@ type Conn struct {
 	conn    net.Conn
 	enabled imap.CapSet
 
-	state   imap.ConnState
-	session Session
+	state                             imap.ConnState
+	session                           Session
+	command                           *Command
+	commandHookDone, responseHookDone bool
 }
 
 func newConn(c net.Conn, server *Server) *Conn {
@@ -140,6 +142,18 @@ func (c *Conn) serve() {
 		}
 	}()
 
+	if hook := c.server.options.GreetingHook; hook != nil {
+		if err := hook(c); err != nil {
+			if !errors.Is(err, ErrResponseHandled) {
+				resp := &imap.StatusResponse{Type: imap.StatusResponseTypeBye, Text: err.Error()}
+				if imapErr, ok := err.(*imap.Error); ok {
+					resp = (*imap.StatusResponse)(imapErr)
+				}
+				_ = c.writeStatusResp("", resp)
+			}
+			return
+		}
+	}
 	caps := c.server.options.caps()
 	if _, ok := c.session.(SessionIMAP4rev2); !ok && caps.Has(imap.CapIMAP4rev2) {
 		panic("imapserver: server advertises IMAP4rev2 but session doesn't support it")
@@ -213,6 +227,10 @@ func (c *Conn) readCommand(dec *imapwire.Decoder) error {
 		}
 		name = "UID " + strings.ToUpper(subName)
 	}
+
+	c.command = &Command{Tag: tag, Name: name}
+	c.commandHookDone, c.responseHookDone = false, false
+	defer func() { c.command = nil }()
 
 	// TODO: handle multiple commands concurrently
 	sendOK := true
@@ -301,7 +319,9 @@ func (c *Conn) readCommand(dec *imapwire.Decoder) error {
 		imapErr *imap.Error
 		decErr  *imapwire.DecoderExpectError
 	)
-	if errors.As(err, &imapErr) {
+	if errors.Is(err, ErrResponseHandled) {
+		return c.writeStatusResp(tag, nil)
+	} else if errors.As(err, &imapErr) {
 		resp = (*imap.StatusResponse)(imapErr)
 	} else if errors.As(err, &decErr) {
 		resp = &imap.StatusResponse{
@@ -331,12 +351,18 @@ func (c *Conn) handleNoop(dec *imapwire.Decoder) error {
 	if !dec.ExpectCRLF() {
 		return dec.Err()
 	}
+	if err := c.beforeCommand(); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (c *Conn) handleLogout(dec *imapwire.Decoder) error {
 	if !dec.ExpectCRLF() {
 		return dec.Err()
+	}
+	if err := c.beforeCommand(); err != nil {
+		return err
 	}
 
 	c.state = imap.ConnStateLogout
@@ -352,6 +378,7 @@ func (c *Conn) handleDelete(dec *imapwire.Decoder) error {
 	if !dec.ExpectSP() || !dec.ExpectMailbox(&name) || !dec.ExpectCRLF() {
 		return dec.Err()
 	}
+	c.command.Mailbox = name
 	if err := c.checkState(imap.ConnStateAuthenticated); err != nil {
 		return err
 	}
@@ -363,6 +390,7 @@ func (c *Conn) handleRename(dec *imapwire.Decoder) error {
 	if !dec.ExpectSP() || !dec.ExpectMailbox(&oldName) || !dec.ExpectSP() || !dec.ExpectMailbox(&newName) || !dec.ExpectCRLF() {
 		return dec.Err()
 	}
+	c.command.Mailbox = oldName
 	if err := c.checkState(imap.ConnStateAuthenticated); err != nil {
 		return err
 	}
@@ -375,6 +403,7 @@ func (c *Conn) handleSubscribe(dec *imapwire.Decoder) error {
 	if !dec.ExpectSP() || !dec.ExpectMailbox(&name) || !dec.ExpectCRLF() {
 		return dec.Err()
 	}
+	c.command.Mailbox = name
 	if err := c.checkState(imap.ConnStateAuthenticated); err != nil {
 		return err
 	}
@@ -386,6 +415,7 @@ func (c *Conn) handleUnsubscribe(dec *imapwire.Decoder) error {
 	if !dec.ExpectSP() || !dec.ExpectMailbox(&name) || !dec.ExpectCRLF() {
 		return dec.Err()
 	}
+	c.command.Mailbox = name
 	if err := c.checkState(imap.ConnStateAuthenticated); err != nil {
 		return err
 	}
@@ -428,6 +458,12 @@ func (c *Conn) canAuth() bool {
 }
 
 func (c *Conn) writeStatusResp(tag string, statusResp *imap.StatusResponse) error {
+	if tag != "" {
+		statusResp = c.filterCompletion(statusResp)
+	}
+	if statusResp == nil {
+		return nil
+	}
 	enc := newResponseEncoder(c)
 	defer enc.end()
 	return writeStatusResp(enc.Encoder, tag, statusResp)
@@ -440,12 +476,18 @@ func (c *Conn) writeContReq(text string) error {
 }
 
 func (c *Conn) writeCapabilityStatus(tag string, typ imap.StatusResponseType, text string) error {
+	if handled, err := c.interceptCompletion(tag, &imap.StatusResponse{Type: typ, Text: text}); handled {
+		return err
+	}
 	enc := newResponseEncoder(c)
 	defer enc.end()
 	return writeCapabilityStatus(enc.Encoder, tag, typ, c.availableCaps(), text)
 }
 
 func (c *Conn) checkState(state imap.ConnState) error {
+	if err := c.beforeCommand(); err != nil {
+		return err
+	}
 	if state == imap.ConnStateAuthenticated && c.state == imap.ConnStateSelected {
 		return nil
 	}

@@ -5,9 +5,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-imap/v2/internal"
-	"github.com/emersion/go-imap/v2/internal/imapwire"
+	"github.com/johlo/go-imap/v2"
+	"github.com/johlo/go-imap/v2/internal"
+	"github.com/johlo/go-imap/v2/internal/imapwire"
 )
 
 // defaultAppendLimit is the default maximum size of an APPEND payload.
@@ -76,18 +76,26 @@ func (c *Conn) handleAppend(tag string, dec *imapwire.Decoder) error {
 			Text: fmt.Sprintf("Literals are limited to %v bytes for this command", appendLimit),
 		}
 	}
+	c.command.Mailbox = mailbox
+	if err := c.checkState(imap.ConnStateAuthenticated); err != nil {
+		// Synchronous clients wait for permission to send the literal. Only
+		// drain data already sent by a non-synchronizing client.
+		if nonSync {
+			c.setReadTimeout(literalReadTimeout)
+			defer c.setReadTimeout(cmdReadTimeout)
+			if _, discardErr := io.Copy(io.Discard, lit); discardErr != nil {
+				return discardErr
+			}
+			dec.CRLF()
+		}
+		return err
+	}
 	if err := c.acceptLiteral(lit.Size(), nonSync); err != nil {
 		return err
 	}
 
 	c.setReadTimeout(literalReadTimeout)
 	defer c.setReadTimeout(cmdReadTimeout)
-
-	if err := c.checkState(imap.ConnStateAuthenticated); err != nil {
-		io.Copy(io.Discard, lit)
-		dec.CRLF()
-		return err
-	}
 
 	data, appendErr := c.session.Append(mailbox, lit, &options)
 	if _, discardErr := io.Copy(io.Discard, lit); discardErr != nil {
@@ -109,6 +117,9 @@ func (c *Conn) handleAppend(tag string, dec *imapwire.Decoder) error {
 }
 
 func (c *Conn) writeAppendOK(tag string, data *imap.AppendData) error {
+	if handled, err := c.interceptCompletion(tag, &imap.StatusResponse{Type: imap.StatusResponseTypeOK, Text: "APPEND completed"}); handled {
+		return err
+	}
 	enc := newResponseEncoder(c)
 	defer enc.end()
 

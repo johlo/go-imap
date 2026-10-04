@@ -5,8 +5,8 @@ import (
 	"io"
 	"runtime/debug"
 
-	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-imap/v2/internal/imapwire"
+	"github.com/johlo/go-imap/v2"
+	"github.com/johlo/go-imap/v2/internal/imapwire"
 )
 
 func (c *Conn) handleIdle(dec *imapwire.Decoder) error {
@@ -38,6 +38,7 @@ func (c *Conn) handleIdle(dec *imapwire.Decoder) error {
 	c.setReadTimeout(idleReadTimeout)
 	line, isPrefix, err := c.br.ReadLine()
 	close(stop)
+	idleErr := <-done
 	if err == io.EOF {
 		return nil
 	} else if err != nil {
@@ -46,5 +47,5 @@ func (c *Conn) handleIdle(dec *imapwire.Decoder) error {
 		return newClientBugError("Syntax error: expected DONE to end IDLE command")
 	}
 
-	return <-done
+	return idleErr
 }

@@ -6,9 +6,9 @@ import (
 
 	"github.com/emersion/go-sasl"
 
-	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-imap/v2/internal"
-	"github.com/emersion/go-imap/v2/internal/imapwire"
+	"github.com/johlo/go-imap/v2"
+	"github.com/johlo/go-imap/v2/internal"
+	"github.com/johlo/go-imap/v2/internal/imapwire"
 )
 
 func (c *Conn) handleAuthenticate(tag string, dec *imapwire.Decoder) error {
@@ -72,9 +72,6 @@ func (c *Conn) handleAuthenticate(tag string, dec *imapwire.Decoder) error {
 		})
 	}
 
-	enc := newResponseEncoder(c)
-	defer enc.end()
-
 	resp := initialResp
 	for {
 		challenge, done, err := saslServer.Next(resp)
@@ -88,7 +85,7 @@ func (c *Conn) handleAuthenticate(tag string, dec *imapwire.Decoder) error {
 		if challenge != nil {
 			challengeStr = internal.EncodeSASL(challenge)
 		}
-		if err := writeContReq(enc.Encoder, challengeStr); err != nil {
+		if err := c.writeContReq(challengeStr); err != nil {
 			return err
 		}
 
@@ -112,7 +109,7 @@ func (c *Conn) handleAuthenticate(tag string, dec *imapwire.Decoder) error {
 
 	c.state = imap.ConnStateAuthenticated
 	text := fmt.Sprintf("%v authentication successful", mech)
-	return writeCapabilityOK(enc.Encoder, tag, c.availableCaps(), text)
+	return c.writeCapabilityStatus(tag, imap.StatusResponseTypeOK, text)
 }
 
 func decodeSASL(s string) ([]byte, error) {

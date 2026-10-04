@@ -3,13 +3,16 @@ package imapserver
 import (
 	"fmt"
 
-	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-imap/v2/internal/imapwire"
+	"github.com/johlo/go-imap/v2"
+	"github.com/johlo/go-imap/v2/internal/imapwire"
 )
 
 func (c *Conn) handleCapability(dec *imapwire.Decoder) error {
 	if !dec.ExpectCRLF() {
 		return dec.Err()
+	}
+	if err := c.beforeCommand(); err != nil {
+		return err
 	}
 
 	enc := newResponseEncoder(c)
@@ -101,6 +104,9 @@ func (c *Conn) availableCaps() []imap.Cap {
 		} else {
 			addAvailableCaps(&caps, available, []imap.Cap{imap.CapAppendLimit})
 		}
+	}
+	if hook := c.server.options.CapabilitiesHook; hook != nil {
+		caps = hook(c, caps)
 	}
 	return caps
 }

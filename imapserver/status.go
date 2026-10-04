@@ -3,8 +3,8 @@ package imapserver
 import (
 	"strings"
 
-	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-imap/v2/internal/imapwire"
+	"github.com/johlo/go-imap/v2"
+	"github.com/johlo/go-imap/v2/internal/imapwire"
 )
 
 func (c *Conn) handleStatus(dec *imapwire.Decoder) error {
@@ -36,6 +36,7 @@ func (c *Conn) handleStatus(dec *imapwire.Decoder) error {
 		}
 	}
 
+	c.command.Mailbox = mailbox
 	if err := c.checkState(imap.ConnStateAuthenticated); err != nil {
 		return err
 	}
