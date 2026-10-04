@@ -4,7 +4,7 @@
 
 This public fork follows [emersion/go-imap v2](https://github.com/emersion/go-imap/tree/v2),
 based on upstream commit `46e71ca79a54`. It retains the upstream MIT license and tests.
-The `mailarky-v2` branch uses its own module path, `github.com/johlo/go-imap/v2`,
+The `imap-v2-protocol-hooks` branch uses its own module path, `github.com/johlo/go-imap/v2`,
 so consumers can pin a revision without a `replace` directive.
 
 Optional `imapserver.Options` hooks support protocol testing:
