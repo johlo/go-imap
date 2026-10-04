@@ -36,8 +36,9 @@ func (c *Conn) handleStartTLS(tag string, dec *imapwire.Decoder) error {
 		}
 	}
 
-	if handled, err := c.interceptCompletion(tag, &imap.StatusResponse{Type: imap.StatusResponseTypeOK, Text: "Begin TLS negotiation now"}); handled {
-		return err
+	resp := c.filterCompletion(&imap.StatusResponse{Type: imap.StatusResponseTypeOK, Text: "Begin TLS negotiation now"})
+	if resp == nil || resp.Type != imap.StatusResponseTypeOK {
+		return c.writeStatusResp(tag, resp)
 	}
 
 	// Do not allow to write cleartext data past this point: keep c.encMutex
@@ -45,10 +46,7 @@ func (c *Conn) handleStartTLS(tag string, dec *imapwire.Decoder) error {
 	enc := newResponseEncoder(c)
 	defer enc.end()
 
-	err := writeStatusResp(enc.Encoder, tag, &imap.StatusResponse{
-		Type: imap.StatusResponseTypeOK,
-		Text: "Begin TLS negotiation now",
-	})
+	err := writeStatusResp(enc.Encoder, tag, resp)
 	if err != nil {
 		return err
 	}

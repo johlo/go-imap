@@ -28,6 +28,10 @@ func hookOptions(t *testing.T) *imapserver.Options {
 }
 func hookConn(t *testing.T, options *imapserver.Options) *textproto.Conn {
 	t.Helper()
+	return textproto.NewConn(hookNetConn(t, options))
+}
+func hookNetConn(t *testing.T, options *imapserver.Options) net.Conn {
+	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -41,7 +45,7 @@ func hookConn(t *testing.T, options *imapserver.Options) *textproto.Conn {
 	}
 	conn.SetDeadline(time.Now().Add(3 * time.Second))
 	t.Cleanup(func() { conn.Close(); server.Close(); <-done })
-	return textproto.NewConn(conn)
+	return conn
 }
 func hookLine(t *testing.T, c *textproto.Conn) string {
 	t.Helper()

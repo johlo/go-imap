@@ -26,8 +26,13 @@ type Logger interface {
 // The only required field is NewSession.
 type Options struct {
 	// Optional protocol hooks. Configure them before serving connections.
-	GreetingHook     func(*Conn) error
-	CommandHook      func(*Conn, *Command) error
+	GreetingHook func(*Conn) error
+	// CommandHook runs once after argument decoding, before execution. It does
+	// not run for unknown commands or decoding failures, and does not poll.
+	CommandHook func(*Conn, *Command) error
+	// ResponseHook may edit, replace, or suppress a copy of a tagged response.
+	// It also sees BAD replies for commands skipped by CommandHook, and may
+	// receive nil when the command returned ErrResponseHandled.
 	ResponseHook     func(*Conn, *Command, *imap.StatusResponse) *imap.StatusResponse
 	CapabilitiesHook func(*Conn, []imap.Cap) []imap.Cap
 

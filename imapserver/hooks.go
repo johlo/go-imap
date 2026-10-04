@@ -45,9 +45,6 @@ func (c *Conn) beforeCommand() error {
 	if c.server.options.CommandHook == nil {
 		return nil
 	}
-	if err := c.poll(c.command.Name); err != nil {
-		return err
-	}
 	return c.server.options.CommandHook(c, c.command)
 }
 
@@ -57,6 +54,10 @@ func (c *Conn) filterCompletion(resp *imap.StatusResponse) *imap.StatusResponse 
 	}
 	c.responseHookDone = true
 	if hook := c.server.options.ResponseHook; hook != nil {
+		if resp != nil {
+			copy := *resp
+			resp = &copy
+		}
 		return hook(c, c.command, resp)
 	}
 	return resp
@@ -68,7 +69,7 @@ func (c *Conn) interceptCompletion(tag string, resp *imap.StatusResponse) (bool,
 		return false, nil
 	}
 	filtered := c.filterCompletion(resp)
-	if filtered == resp {
+	if filtered != nil && *filtered == *resp {
 		return false, nil
 	}
 	return true, c.writeStatusResp(tag, filtered)
