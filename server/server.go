@@ -72,7 +72,7 @@ type ConnExtension interface {
 //
 // To disable the default status response, use imap.ErrStatusResp{nil} instead.
 func ErrStatusResp(res *imap.StatusResp) error {
-	return &imap.ErrStatusResp{res}
+	return &imap.ErrStatusResp{Resp: res}
 }
 
 // ErrNoStatusResp can be returned by a Handler to prevent the default status
@@ -80,7 +80,7 @@ func ErrStatusResp(res *imap.StatusResp) error {
 //
 // Deprecated: Use imap.ErrStatusResp{nil} instead
 func ErrNoStatusResp() error {
-	return &imap.ErrStatusResp{nil}
+	return &imap.ErrStatusResp{Resp: nil}
 }
 
 // An IMAP server.
@@ -117,6 +117,13 @@ type Server struct {
 	// The maximum literal size, in bytes. Literals exceeding this size will be
 	// rejected. A value of zero disables the limit (this is the default).
 	MaxLiteralSize uint32
+
+	// Mail Sandbox hooks. CommandHook errors use normal IMAP status handling.
+	CommandHook      func(Conn, *imap.Command) error
+	ResponseHook     func(Conn, *imap.Command, *imap.StatusResp) *imap.StatusResp
+	GreetingHook     func(Conn) error
+	CapabilitiesHook func(Conn, []string) []string
+	LoginHook        func(Conn, string) error
 }
 
 // Create a new IMAP server from an existing listener.
@@ -135,6 +142,11 @@ func New(bkd backend.Backend) *Server {
 					return errors.New("Identities not supported")
 				}
 
+				if s.LoginHook != nil {
+					if err := s.LoginHook(conn, username); err != nil {
+						return err
+					}
+				}
 				user, err := bkd.Login(conn.Info(), username, password)
 				if err != nil {
 					return err

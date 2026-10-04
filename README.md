@@ -1,5 +1,31 @@
 # go-imap
 
+## Mail Sandbox fork
+
+This public fork of [emersion/go-imap](https://github.com/emersion/go-imap)
+is based on **v1.2.1**, not the upstream v2 branch. The `mail-sandbox` branch adds
+server hooks used by [Mail Sandbox](https://github.com/johlo/mail-sandbox) for
+protocol fault injection. Upstream packages, tests and the MIT license remain.
+
+- `Server.GreetingHook` runs after implicit TLS negotiation and before the
+  greeting. Return an error to stop the connection after any custom response.
+- `Server.CommandHook` runs before normal handling; errors use ordinary IMAP
+  status handling, including `imap.ErrStatusResp` for a custom or suppressed reply.
+- `Server.ResponseHook` can replace or suppress a command's completion response.
+- `Server.LoginHook` intercepts LOGIN and SASL PLAIN after the username is known
+  and before credentials are checked.
+- `Server.CapabilitiesHook` filters advertised lists without changing internal
+  authentication/feature checks.
+- `Context.Command` and `Context.HookData` are available until the command ends.
+  Response writes flush before releasing callers that may close the socket.
+
+Hooks are optional; configure them before serving connections. Normal behavior
+is preserved when they are nil. No sandbox-specific fault registry is included.
+
+The module path remains `github.com/emersion/go-imap`. Consumers select this
+fork with a version-pinned Go `replace` directive; Mail Sandbox's `go.mod` records
+its exact revision. Run `go test -race ./...` and `go vet ./...` when updating.
+
 [![godocs.io](https://godocs.io/github.com/emersion/go-imap?status.svg)](https://godocs.io/github.com/emersion/go-imap)
 [![builds.sr.ht status](https://builds.sr.ht/~emersion/go-imap/commits/master.svg)](https://builds.sr.ht/~emersion/go-imap/commits/master?)
 

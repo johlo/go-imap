@@ -46,6 +46,10 @@ type Conn interface {
 
 // Context stores a connection's metadata.
 type Context struct {
+	// Command currently being handled, available to protocol hooks.
+	Command *imap.Command
+	// HookData retains hook-owned metadata for the duration of a command.
+	HookData interface{}
 	// This connection's current state.
 	State imap.ConnState
 	// If the client is logged in, the user.
@@ -128,6 +132,10 @@ type response struct {
 
 func (r *response) WriteTo(w *imap.Writer) error {
 	err := r.response.WriteTo(w)
+	// Complete the write before releasing a caller that may close the socket.
+	if err == nil {
+		err = w.Flush()
+	}
 	close(r.done)
 	return err
 }
@@ -204,6 +212,15 @@ func (c *conn) Capabilities() []string {
 	return caps
 }
 
+// Only advertisements are filtered. Internal checks use actual capabilities.
+func advertisedCapabilities(c Conn) []string {
+	caps := c.Capabilities()
+	if hook := c.Server().CapabilitiesHook; hook != nil {
+		caps = hook(c, caps)
+	}
+	return caps
+}
+
 func (c *conn) writeAndFlush(w imap.WriterTo) error {
 	if err := w.WriteTo(c.Writer); err != nil {
 		return err
@@ -239,9 +256,21 @@ func (c *conn) send() {
 }
 
 func (c *conn) greet() error {
+	// CONNECT faults affect the IMAP greeting, after implicit TLS negotiation.
+	if c.tlsConn != nil {
+		c.setDeadline()
+		if err := c.tlsConn.Handshake(); err != nil {
+			return err
+		}
+	}
 	c.ctx.State = imap.NotAuthenticatedState
+	if c.s.GreetingHook != nil {
+		if err := c.s.GreetingHook(c.conn); err != nil {
+			return err
+		}
+	}
 
-	caps := c.Capabilities()
+	caps := advertisedCapabilities(c.conn)
 	args := make([]interface{}, len(caps))
 	for i, cap := range caps {
 		args[i] = imap.RawString(cap)
@@ -389,6 +418,21 @@ func (c *conn) commandHandler(cmd *imap.Command) (hdlr Handler, err error) {
 }
 
 func (c *conn) handleCommand(cmd *imap.Command) (res *imap.StatusResp, up Upgrader, err error) {
+	c.ctx.Command = cmd
+	defer func() { c.ctx.Command = nil; c.ctx.HookData = nil }()
+	if c.s.CommandHook != nil {
+		if hookErr := c.s.CommandHook(c.conn, cmd); hookErr != nil {
+			if statusErr, ok := hookErr.(*imap.ErrStatusResp); ok {
+				res = statusErr.Resp
+			} else {
+				res = &imap.StatusResp{Type: imap.StatusRespNo, Info: hookErr.Error()}
+			}
+			if res != nil {
+				res.Tag = cmd.Tag
+			}
+			return res, nil, nil
+		}
+	}
 	hdlr, err := c.commandHandler(cmd)
 	if err != nil {
 		return
@@ -408,6 +452,9 @@ func (c *conn) handleCommand(cmd *imap.Command) (res *imap.StatusResp, up Upgrad
 		}
 	}
 
+	if c.s.ResponseHook != nil {
+		res = c.s.ResponseHook(c.conn, cmd, res)
+	}
 	if res != nil {
 		res.Tag = cmd.Tag
 

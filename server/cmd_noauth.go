@@ -60,7 +60,7 @@ func (cmd *StartTLS) Upgrade(conn Conn) error {
 }
 
 func afterAuthStatus(conn Conn) error {
-	caps := conn.Capabilities()
+	caps := advertisedCapabilities(conn)
 	capAtoms := make([]interface{}, 0, len(caps))
 	for _, cap := range caps {
 		capAtoms = append(capAtoms, imap.RawString(cap))
@@ -95,6 +95,11 @@ func (cmd *Login) Handle(conn Conn) error {
 		return ErrAuthDisabled
 	}
 
+	if hook := conn.Server().LoginHook; hook != nil {
+		if err := hook(conn, cmd.Username); err != nil {
+			return err
+		}
+	}
 	user, err := conn.Server().Backend.Login(conn.Info(), cmd.Username, cmd.Password)
 	if err != nil {
 		return err

@@ -12,7 +12,7 @@ type Capability struct {
 }
 
 func (cmd *Capability) Handle(conn Conn) error {
-	res := &responses.Capability{Caps: conn.Capabilities()}
+	res := &responses.Capability{Caps: advertisedCapabilities(conn)}
 	return conn.WriteResp(res)
 }
 
