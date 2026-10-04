@@ -118,7 +118,7 @@ type Server struct {
 	// rejected. A value of zero disables the limit (this is the default).
 	MaxLiteralSize uint32
 
-	// Mail Sandbox hooks. CommandHook errors use normal IMAP status handling.
+	// Mailarky hooks. CommandHook errors use normal IMAP status handling.
 	CommandHook      func(Conn, *imap.Command) error
 	ResponseHook     func(Conn, *imap.Command, *imap.StatusResp) *imap.StatusResp
 	GreetingHook     func(Conn) error

@@ -1,10 +1,10 @@
 # go-imap
 
-## Mail Sandbox fork
+## Mailarky fork
 
 This public fork of [emersion/go-imap](https://github.com/emersion/go-imap)
-is based on **v1.2.1**, not the upstream v2 branch. The `mail-sandbox` branch adds
-server hooks used by [Mail Sandbox](https://github.com/johlo/mail-sandbox) for
+is based on **v1.2.1**, not the upstream v2 branch. The `mailarky` branch adds
+server hooks used by [Mailarky](https://github.com/johlo/mailarky) for
 protocol fault injection. Upstream packages, tests and the MIT license remain.
 
 - `Server.GreetingHook` runs after implicit TLS negotiation and before the
@@ -23,7 +23,7 @@ Hooks are optional; configure them before serving connections. Normal behavior
 is preserved when they are nil. No sandbox-specific fault registry is included.
 
 The module path remains `github.com/emersion/go-imap`. Consumers select this
-fork with a version-pinned Go `replace` directive; Mail Sandbox's `go.mod` records
+fork with a version-pinned Go `replace` directive; Mailarky's `go.mod` records
 its exact revision. Run `go test -race ./...` and `go vet ./...` when updating.
 
 [![godocs.io](https://godocs.io/github.com/emersion/go-imap?status.svg)](https://godocs.io/github.com/emersion/go-imap)
