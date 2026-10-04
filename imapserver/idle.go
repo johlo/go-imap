@@ -38,6 +38,7 @@ func (c *Conn) handleIdle(dec *imapwire.Decoder) error {
 	c.setReadTimeout(idleReadTimeout)
 	line, isPrefix, err := c.br.ReadLine()
 	close(stop)
+	idleErr := <-done
 	if err == io.EOF {
 		return nil
 	} else if err != nil {
@@ -46,5 +47,5 @@ func (c *Conn) handleIdle(dec *imapwire.Decoder) error {
 		return newClientBugError("Syntax error: expected DONE to end IDLE command")
 	}
 
-	return <-done
+	return idleErr
 }
