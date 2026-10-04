@@ -3,7 +3,7 @@
 ## Mailarky fork
 
 This public fork of [emersion/go-imap](https://github.com/emersion/go-imap)
-is based on **v1.2.1**, not the upstream v2 branch. The `mailarky` branch adds
+is based on **v1.2.1**, not the upstream v2 branch. The `imap-v1-protocol-hooks` branch adds
 server hooks used by [Mailarky](https://github.com/johlo/mailarky) for
 protocol fault injection. Upstream packages, tests and the MIT license remain.
 
