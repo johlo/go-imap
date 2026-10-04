@@ -19,14 +19,19 @@ protocol fault injection. Upstream packages, tests and the MIT license remain.
 - `Context.Command` and `Context.HookData` are available until the command ends.
   Response writes flush before releasing callers that may close the socket.
 
+`Server.IdleHook` can own IDLE continuation, updates and DONE. Mailboxes that
+implement `backend.MailboxPoller` own selected-mailbox updates, so the server
+does not synthesize duplicate EXPUNGE/EXISTS/FETCH responses. CLOSE preserves
+deleted messages in a read-only (EXAMINE) session.
+
 Hooks are optional; configure them before serving connections. Normal behavior
 is preserved when they are nil. No sandbox-specific fault registry is included.
 
-The module path remains `github.com/emersion/go-imap`. Consumers select this
-fork with a version-pinned Go `replace` directive; Mailarky's `go.mod` records
-its exact revision. Run `go test -race ./...` and `go vet ./...` when updating.
+The module path is `github.com/johlo/go-imap`. Consumers import this fork
+directly and pin a revision with `go get`; no `replace` directive is needed.
+Run `go test -race ./...` and `go vet ./...` when updating.
 
-[![godocs.io](https://godocs.io/github.com/emersion/go-imap?status.svg)](https://godocs.io/github.com/emersion/go-imap)
+[![godocs.io](https://godocs.io/github.com/johlo/go-imap?status.svg)](https://godocs.io/github.com/johlo/go-imap)
 [![builds.sr.ht status](https://builds.sr.ht/~emersion/go-imap/commits/master.svg)](https://builds.sr.ht/~emersion/go-imap/commits/master?)
 
 An [IMAP4rev1](https://tools.ietf.org/html/rfc3501) library written in Go. It
@@ -34,7 +39,7 @@ can be used to build a client and/or a server.
 
 ## Usage
 
-### Client [![godocs.io](https://godocs.io/github.com/emersion/go-imap/client?status.svg)](https://godocs.io/github.com/emersion/go-imap/client)
+### Client [![godocs.io](https://godocs.io/github.com/johlo/go-imap/client?status.svg)](https://godocs.io/github.com/johlo/go-imap/client)
 
 ```go
 package main
@@ -42,8 +47,8 @@ package main
 import (
 	"log"
 
-	"github.com/emersion/go-imap/client"
-	"github.com/emersion/go-imap"
+	"github.com/johlo/go-imap/client"
+	"github.com/johlo/go-imap"
 )
 
 func main() {
@@ -117,7 +122,7 @@ func main() {
 }
 ```
 
-### Server [![godocs.io](https://godocs.io/github.com/emersion/go-imap/server?status.svg)](https://godocs.io/github.com/emersion/go-imap/server)
+### Server [![godocs.io](https://godocs.io/github.com/johlo/go-imap/server?status.svg)](https://godocs.io/github.com/johlo/go-imap/server)
 
 ```go
 package main
@@ -125,8 +130,8 @@ package main
 import (
 	"log"
 
-	"github.com/emersion/go-imap/server"
-	"github.com/emersion/go-imap/backend/memory"
+	"github.com/johlo/go-imap/server"
+	"github.com/johlo/go-imap/backend/memory"
 )
 
 func main() {
@@ -172,23 +177,23 @@ Support for other extensions is provided via separate packages. See below.
 ### Extensions
 
 Commands defined in IMAP extensions are available in other packages. See [the
-wiki](https://github.com/emersion/go-imap/wiki/Using-extensions#using-client-extensions)
+wiki](https://github.com/johlo/go-imap/wiki/Using-extensions#using-client-extensions)
 to learn how to use them.
 
-* [COMPRESS](https://github.com/emersion/go-imap-compress)
+* [COMPRESS](https://github.com/johlo/go-imap-compress)
 * [ID](https://github.com/ProtonMail/go-imap-id)
-* [METADATA](https://github.com/emersion/go-imap-metadata)
+* [METADATA](https://github.com/johlo/go-imap-metadata)
 * [NAMESPACE](https://github.com/foxcpp/go-imap-namespace)
-* [QUOTA](https://github.com/emersion/go-imap-quota)
-* [SORT and THREAD](https://github.com/emersion/go-imap-sortthread)
-* [UIDPLUS](https://github.com/emersion/go-imap-uidplus)
+* [QUOTA](https://github.com/johlo/go-imap-quota)
+* [SORT and THREAD](https://github.com/johlo/go-imap-sortthread)
+* [UIDPLUS](https://github.com/johlo/go-imap-uidplus)
 
 ### Server backends
 
-* [Memory](https://github.com/emersion/go-imap/tree/master/backend/memory) (for testing)
-* [Multi](https://github.com/emersion/go-imap-multi)
-* [PGP](https://github.com/emersion/go-imap-pgp)
-* [Proxy](https://github.com/emersion/go-imap-proxy)
+* [Memory](https://github.com/johlo/go-imap/tree/master/backend/memory) (for testing)
+* [Multi](https://github.com/johlo/go-imap-multi)
+* [PGP](https://github.com/johlo/go-imap-pgp)
+* [Proxy](https://github.com/johlo/go-imap-proxy)
 * [Notmuch](https://github.com/stbenjam/go-imap-notmuch) - Experimental gateway for [Notmuch](https://notmuchmail.org/)
 
 ### Related projects

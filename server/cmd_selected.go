@@ -3,10 +3,10 @@ package server
 import (
 	"errors"
 
-	"github.com/emersion/go-imap"
-	"github.com/emersion/go-imap/backend"
-	"github.com/emersion/go-imap/commands"
-	"github.com/emersion/go-imap/responses"
+	"github.com/johlo/go-imap"
+	"github.com/johlo/go-imap/backend"
+	"github.com/johlo/go-imap/commands"
+	"github.com/johlo/go-imap/responses"
 )
 
 // imap errors in Selected state.
@@ -50,10 +50,14 @@ func (cmd *Close) Handle(conn Conn) error {
 	}
 
 	mailbox := ctx.Mailbox
+	readOnly := ctx.MailboxReadOnly
 	ctx.Mailbox = nil
 	ctx.MailboxReadOnly = false
 
 	// No need to send expunge updates here, since the mailbox is already unselected
+	if readOnly {
+		return nil
+	}
 	return mailbox.Expunge()
 }
 
@@ -73,7 +77,7 @@ func (cmd *Expunge) Handle(conn Conn) error {
 	// Get a list of messages that will be deleted
 	// That will allow us to send expunge updates if the backend doesn't support it
 	var seqnums []uint32
-	if conn.Server().Updates == nil {
+	if !hasMailboxUpdates(conn) {
 		criteria := &imap.SearchCriteria{
 			WithFlags: []string{imap.DeletedFlag},
 		}
@@ -90,7 +94,7 @@ func (cmd *Expunge) Handle(conn Conn) error {
 	}
 
 	// If the backend doesn't support expunge updates, let's do it ourselves
-	if conn.Server().Updates == nil {
+	if !hasMailboxUpdates(conn) {
 		done := make(chan error, 1)
 
 		ch := make(chan uint32)
@@ -250,7 +254,7 @@ func (cmd *Store) handle(uid bool, conn Conn) error {
 
 	// Not silent: send FETCH updates if the backend doesn't support message
 	// updates
-	if conn.Server().Updates == nil && !silent {
+	if !hasMailboxUpdates(conn) && !silent {
 		inner := &Fetch{}
 		inner.SeqSet = cmd.SeqSet
 		inner.Items = []imap.FetchItem{imap.FetchFlags}
@@ -343,4 +347,14 @@ func (cmd *Uid) Handle(conn Conn) error {
 		Type: imap.StatusRespOk,
 		Info: "UID " + inner.Name + " completed",
 	})
+}
+
+// A polling mailbox owns sequence tracking and emits updates at command boundaries.
+// Do not synthesize a second EXPUNGE/EXISTS/FETCH for such a backend.
+func hasMailboxUpdates(conn Conn) bool {
+	if conn.Server().Updates != nil {
+		return true
+	}
+	_, ok := conn.Context().Mailbox.(backend.MailboxPoller)
+	return ok
 }

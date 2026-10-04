@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/emersion/go-imap"
-	"github.com/emersion/go-imap/backend"
-	"github.com/emersion/go-imap/responses"
 	"github.com/emersion/go-sasl"
+	"github.com/johlo/go-imap"
+	"github.com/johlo/go-imap/backend"
+	"github.com/johlo/go-imap/responses"
 )
 
 // The minimum autologout duration defined in RFC 3501 section 5.4.
@@ -119,9 +119,11 @@ type Server struct {
 	MaxLiteralSize uint32
 
 	// Mailarky hooks. CommandHook errors use normal IMAP status handling.
-	CommandHook      func(Conn, *imap.Command) error
-	ResponseHook     func(Conn, *imap.Command, *imap.StatusResp) *imap.StatusResp
-	GreetingHook     func(Conn) error
+	CommandHook  func(Conn, *imap.Command) error
+	ResponseHook func(Conn, *imap.Command, *imap.StatusResp) *imap.StatusResp
+	GreetingHook func(Conn) error
+	// IdleHook owns the IDLE continuation, updates and DONE when configured.
+	IdleHook         func(Conn) error
 	CapabilitiesHook func(Conn, []string) []string
 	LoginHook        func(Conn, string) error
 }
@@ -413,7 +415,7 @@ func (s *Server) Close() error {
 }
 
 // Enable some IMAP extensions on this server.
-// Wiki entry: https://github.com/emersion/go-imap/wiki/Using-extensions
+// Wiki entry: https://github.com/johlo/go-imap/wiki/Using-extensions
 func (s *Server) Enable(extensions ...Extension) {
 	for _, ext := range extensions {
 		// Ignore built-in extensions
@@ -425,7 +427,7 @@ func (s *Server) Enable(extensions ...Extension) {
 }
 
 // Enable an authentication mechanism on this server.
-// Wiki entry: https://github.com/emersion/go-imap/wiki/Using-authentication-mechanisms
+// Wiki entry: https://github.com/johlo/go-imap/wiki/Using-authentication-mechanisms
 func (s *Server) EnableAuth(name string, f SASLServerFactory) {
 	s.auths[name] = f
 }

@@ -5,10 +5,10 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/emersion/go-imap"
-	"github.com/emersion/go-imap/backend"
-	"github.com/emersion/go-imap/commands"
-	"github.com/emersion/go-imap/responses"
+	"github.com/johlo/go-imap"
+	"github.com/johlo/go-imap/backend"
+	"github.com/johlo/go-imap/commands"
+	"github.com/johlo/go-imap/responses"
 )
 
 // imap errors in Authenticated state.
@@ -267,7 +267,7 @@ func (cmd *Append) Handle(conn Conn) error {
 
 	// If APPEND targets the currently selected mailbox, send an untagged EXISTS
 	// Do this only if the backend doesn't send updates itself
-	if conn.Server().Updates == nil && ctx.Mailbox != nil && ctx.Mailbox.Name() == mbox.Name() {
+	if !hasMailboxUpdates(conn) && ctx.Mailbox != nil && ctx.Mailbox.Name() == mbox.Name() {
 		status, err := mbox.Status([]imap.StatusItem{imap.StatusMessages})
 		if err != nil {
 			return err
@@ -305,6 +305,9 @@ type Idle struct {
 }
 
 func (cmd *Idle) Handle(conn Conn) error {
+	if hook := conn.Server().IdleHook; hook != nil {
+		return hook(conn)
+	}
 	cont := &imap.ContinuationReq{Info: "idling"}
 	if err := conn.WriteResp(cont); err != nil {
 		return err

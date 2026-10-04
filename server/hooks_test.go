@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/emersion/go-imap"
-	"github.com/emersion/go-imap/backend/memory"
-	"github.com/emersion/go-imap/server"
+	"github.com/johlo/go-imap"
+	"github.com/johlo/go-imap/backend/memory"
+	"github.com/johlo/go-imap/server"
 )
 
 func hookIMAPConn(t *testing.T, s *server.Server) (*textproto.Conn, func()) {
@@ -161,5 +161,48 @@ func TestResponseHookCanSuppressCompletion(t *testing.T) {
 		if got := hookIMAPCommand(t, c, "NOOP", "BAD"); got != "a BAD replaced NOOP" {
 			t.Fatal(got)
 		}
+	}
+}
+
+func TestIdleHookOverridesBuiltinHandler(t *testing.T) {
+	s := server.New(memory.New())
+	s.AllowInsecureAuth = true
+	s.IdleHook = func(c server.Conn) error {
+		return &imap.ErrStatusResp{Resp: &imap.StatusResp{Type: imap.StatusRespNo, Info: "custom idle"}}
+	}
+	c, closeConn := hookIMAPConn(t, s)
+	defer closeConn()
+	hookIMAPLine(t, c)
+	hookIMAPCommand(t, c, "LOGIN username password", "OK")
+	if got := hookIMAPCommand(t, c, "IDLE", "NO"); !strings.Contains(got, "custom idle") {
+		t.Fatal(got)
+	}
+}
+func TestCloseReadOnlyPreservesDeletedMessages(t *testing.T) {
+	s := server.New(memory.New())
+	s.AllowInsecureAuth = true
+	c, closeConn := hookIMAPConn(t, s)
+	defer closeConn()
+	hookIMAPLine(t, c)
+	hookIMAPCommand(t, c, "LOGIN username password", "OK")
+	hookIMAPCommand(t, c, "SELECT INBOX", "OK")
+	hookIMAPCommand(t, c, `STORE 1 +FLAGS.SILENT (\Deleted)`, "OK")
+	hookIMAPCommand(t, c, "EXAMINE INBOX", "OK")
+	hookIMAPCommand(t, c, "CLOSE", "OK")
+	if err := c.PrintfLine("a SELECT INBOX"); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for {
+		line := hookIMAPLine(t, c)
+		if line == "* 1 EXISTS" {
+			found = true
+		}
+		if strings.HasPrefix(line, "a ") {
+			break
+		}
+	}
+	if !found {
+		t.Fatal("CLOSE expunged from a read-only mailbox")
 	}
 }
