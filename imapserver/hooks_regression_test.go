@@ -80,6 +80,7 @@ func TestEveryCommandRunsHookOnce(t *testing.T) {
 		"STORE": ` 1 +FLAGS (\Seen)`, "UID STORE": ` 1 +FLAGS (\Seen)`,
 		"COPY": " 1 Archive", "UID COPY": " 1 Archive", "MOVE": " 1 Archive", "UID MOVE": " 1 Archive",
 		"SEARCH": " ALL", "UID SEARCH": " ALL",
+		"GETMETADATA": ` "" /private/comment`, "SETMETADATA": ` "" (/private/comment "test")`,
 	}
 	source, err := parser.ParseFile(token.NewFileSet(), "conn.go", nil, 0)
 	if err != nil {

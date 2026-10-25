@@ -232,6 +232,18 @@ func (mbox *Mailbox) flagsLocked() []imap.Flag {
 func (mbox *Mailbox) Expunge(w *imapserver.ExpungeWriter, uids *imap.UIDSet) error {
 	expunged := make(map[*message]struct{})
 	mbox.mutex.Lock()
+	defer mbox.mutex.Unlock()
+	if uids != nil && uids.Dynamic() {
+		set := append(imap.UIDSet(nil), (*uids)...)
+		var max uint32
+		if len(mbox.l) > 0 {
+			max = uint32(mbox.l[len(mbox.l)-1].uid)
+		}
+		for i := range set {
+			staticNumRange((*uint32)(&set[i].Start), (*uint32)(&set[i].Stop), max)
+		}
+		uids = &set
+	}
 	for _, msg := range mbox.l {
 		if uids != nil && !uids.Contains(msg.uid) {
 			continue
@@ -240,15 +252,11 @@ func (mbox *Mailbox) Expunge(w *imapserver.ExpungeWriter, uids *imap.UIDSet) err
 			expunged[msg] = struct{}{}
 		}
 	}
-	mbox.mutex.Unlock()
-
 	if len(expunged) == 0 {
 		return nil
 	}
 
-	mbox.mutex.Lock()
 	mbox.expungeLocked(expunged)
-	mbox.mutex.Unlock()
 
 	return nil
 }
