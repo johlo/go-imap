@@ -273,6 +273,11 @@ func (c *Conn) readCommand(dec *imapwire.Decoder) error {
 		err = c.handleLSub(dec)
 	case "NAMESPACE":
 		err = c.handleNamespace(dec)
+	case "GETMETADATA":
+		err = c.handleGetMetadata(tag, dec)
+		sendOK = false
+	case "SETMETADATA":
+		err = c.handleSetMetadata(dec)
 	case "IDLE":
 		err = c.handleIdle(dec)
 	case "SELECT", "EXAMINE":

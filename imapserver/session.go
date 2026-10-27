@@ -3,9 +3,9 @@ package imapserver
 import (
 	"fmt"
 
+	"github.com/emersion/go-sasl"
 	"github.com/johlo/go-imap/v2"
 	"github.com/johlo/go-imap/v2/internal/imapwire"
-	"github.com/emersion/go-sasl"
 )
 
 var errAuthFailed = &imap.Error{
@@ -123,4 +123,21 @@ type SessionAppendLimit interface {
 	// AppendLimit returns the maximum size in bytes that can be uploaded to
 	// this server in an APPEND command.
 	AppendLimit() uint32
+}
+
+// SessionMetadata supports RFC 5464. Enable CapMetadata for server and mailbox
+// annotations, or CapMetadataServer for server annotations only.
+type SessionMetadata interface {
+	Session
+	// GetMetadata returns an immutable snapshot of existing entries matching
+	// the requested names and depth. Names are lowercase. The server handles
+	// missing values, MAXSIZE filtering and LONGENTRIES responses. An empty
+	// mailbox identifies server annotations. The backend enforces access
+	// control, including per-user isolation of private annotations.
+	GetMetadata(mailbox string, entries []string, depth imap.GetMetadataDepth) (map[string][]byte, error)
+	// SetMetadata atomically applies all changes, or none on error. A nil
+	// pointer deletes an entry; an empty slice stores an empty value. Backends
+	// must copy values they retain, enforce storage limits, and preserve
+	// mailbox annotations across rename (copying them on INBOX rename).
+	SetMetadata(mailbox string, entries map[string]*[]byte) error
 }

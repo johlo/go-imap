@@ -725,8 +725,23 @@ func (c *Client) readResponseTagged(tag, typ string) (startTLS *startTLSCommand,
 		if !c.dec.ExpectAtom(&code) {
 			return nil, fmt.Errorf("in resp-text-code: %w", c.dec.Err())
 		}
-		// TODO: LONGENTRIES and MAXSIZE from METADATA
 		switch code {
+		case "METADATA":
+			var kind string
+			if !c.dec.ExpectSP() || !c.dec.ExpectAtom(&kind) {
+				return nil, c.dec.Err()
+			}
+			if kind == "LONGENTRIES" || kind == "MAXSIZE" {
+				var size uint32
+				if !c.dec.ExpectSP() || !c.dec.ExpectNumber(&size) {
+					return nil, c.dec.Err()
+				}
+				if cmd, ok := cmd.(*GetMetadataCommand); ok && kind == "LONGENTRIES" {
+					cmd.data.LongEntries = size
+				}
+			} else if c.dec.SP() {
+				c.dec.DiscardUntilByte(']')
+			}
 		case "CAPABILITY": // capability-data
 			caps, err := readCapabilities(c.dec)
 			if err != nil {

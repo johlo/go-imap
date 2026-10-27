@@ -39,6 +39,37 @@ history has not been rewritten. Keyed go-message header literals remain because
 unkeyed literals fail `go vet`; they are separate from the protocol behavior.
 Run `go test -race ./...` and `go vet ./...` when updating.
 
+### METADATA and UIDPLUS
+
+The server supports [METADATA (RFC 5464)](https://www.rfc-editor.org/rfc/rfc5464)
+through the optional `imapserver.SessionMetadata` interface. Set
+`imap.CapMetadata` in `Options.Caps` for server and mailbox annotations, or
+`imap.CapMetadataServer` for server annotations alone. The capability is only
+advertised when the session implements the interface.
+
+The protocol layer handles case-insensitive entry names, NIL deletion, empty
+and binary values, DEPTH, MAXSIZE, and LONGENTRIES. Backends supply storage,
+access control, atomic updates, and mailbox rename/delete behavior. Each
+SETMETADATA command accepts up to 128 entries, each at most 64 KiB; backends
+must enforce their own storage limits. Oversized non-synchronizing literals
+close the connection after the error to avoid parsing payload as commands.
+Unsolicited metadata change notifications are not implemented.
+
+GETMETADATA and SETMETADATA participate in the command and response hooks.
+Like APPEND, SETMETADATA runs its command hook before accepting its first value
+literal, so a hook can reject an upload before the client sends it. For commands
+without literals the hook runs after argument decoding. Metadata values are
+never added to `Command`. The client also supports literal8 values, reports
+`GetMetadataData.LongEntries`, and sends options before the mailbox as specified
+by the [verified RFC errata](https://www.rfc-editor.org/errata/rfc5464).
+
+[UIDPLUS (RFC 4315)](https://www.rfc-editor.org/rfc/rfc4315) uses the existing
+`Session.Append`, `Session.Copy`, and `Session.Expunge` methods. Enable
+`imap.CapUIDPlus` for IMAP4rev1 and return the assigned UIDs and destination
+UIDVALIDITY from the backend. Empty copies omit COPYUID. The in-memory backend
+supports selective UID EXPUNGE, including wildcard ranges. Wire tests cover
+APPENDUID, sparse COPYUID mappings, empty copies, and selective expunge.
+
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/johlo/go-imap/v2.svg)](https://pkg.go.dev/github.com/johlo/go-imap/v2)
 

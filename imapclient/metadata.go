@@ -2,38 +2,24 @@ package imapclient
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/johlo/go-imap/v2"
 	"github.com/johlo/go-imap/v2/internal/imapwire"
 )
 
-type GetMetadataDepth int
+type GetMetadataDepth = imap.GetMetadataDepth
 
 const (
-	GetMetadataDepthZero     GetMetadataDepth = 0
-	GetMetadataDepthOne      GetMetadataDepth = 1
-	GetMetadataDepthInfinity GetMetadataDepth = -1
+	GetMetadataDepthZero     = imap.GetMetadataDepthZero
+	GetMetadataDepthOne      = imap.GetMetadataDepthOne
+	GetMetadataDepthInfinity = imap.GetMetadataDepthInfinity
 )
 
-func (depth GetMetadataDepth) String() string {
-	switch depth {
-	case GetMetadataDepthZero:
-		return "0"
-	case GetMetadataDepthOne:
-		return "1"
-	case GetMetadataDepthInfinity:
-		return "infinity"
-	default:
-		panic(fmt.Errorf("imapclient: unknown GETMETADATA depth %d", depth))
-	}
-}
-
 // GetMetadataOptions contains options for the GETMETADATA command.
-type GetMetadataOptions struct {
-	MaxSize *uint32
-	Depth   GetMetadataDepth
-}
+type GetMetadataOptions = imap.GetMetadataOptions
 
-func (options *GetMetadataOptions) names() []string {
+func metadataOptionNames(options *GetMetadataOptions) []string {
 	if options == nil {
 		return nil
 	}
@@ -51,10 +37,9 @@ func (options *GetMetadataOptions) names() []string {
 //
 // This command requires support for the METADATA or METADATA-SERVER extension.
 func (c *Client) GetMetadata(mailbox string, entries []string, options *GetMetadataOptions) *GetMetadataCommand {
-	cmd := &GetMetadataCommand{mailbox: mailbox}
+	cmd := &GetMetadataCommand{mailbox: mailbox, data: GetMetadataData{Mailbox: mailbox}}
 	enc := c.beginCommand("GETMETADATA", cmd)
-	enc.SP().Mailbox(mailbox)
-	if opts := options.names(); len(opts) > 0 {
+	if opts := metadataOptionNames(options); len(opts) > 0 {
 		enc.SP().List(len(opts), func(i int) {
 			opt := opts[i]
 			enc.Atom(opt).SP()
@@ -68,7 +53,7 @@ func (c *Client) GetMetadata(mailbox string, entries []string, options *GetMetad
 			}
 		})
 	}
-	enc.SP().List(len(entries), func(i int) {
+	enc.SP().Mailbox(mailbox).SP().List(len(entries), func(i int) {
 		enc.String(entries[i])
 	})
 	enc.end()
@@ -93,7 +78,7 @@ func (c *Client) SetMetadata(mailbox string, entries map[string]*[]byte) *Comman
 		if v == nil {
 			enc.NIL()
 		} else {
-			enc.String(string(*v)) // TODO: use literals if required
+			enc.String8(string(*v))
 		}
 		i++
 	}
@@ -110,7 +95,7 @@ func (c *Client) handleMetadata() error {
 
 	cmd := c.findPendingCmdFunc(func(anyCmd command) bool {
 		cmd, ok := anyCmd.(*GetMetadataCommand)
-		return ok && cmd.mailbox == data.Mailbox
+		return ok && (cmd.mailbox == data.Mailbox || strings.EqualFold(cmd.mailbox, "INBOX") && strings.EqualFold(data.Mailbox, "INBOX"))
 	})
 	if cmd != nil && len(data.EntryValues) > 0 {
 		cmd := cmd.(*GetMetadataCommand)
@@ -142,10 +127,7 @@ func (cmd *GetMetadataCommand) Wait() (*GetMetadataData, error) {
 }
 
 // GetMetadataData is the data returned by the GETMETADATA command.
-type GetMetadataData struct {
-	Mailbox string
-	Entries map[string]*[]byte
-}
+type GetMetadataData = imap.GetMetadataData
 
 type metadataResp struct {
 	Mailbox     string
@@ -171,10 +153,11 @@ func readMetadataResp(dec *imapwire.Decoder) (*metadataResp, error) {
 			value *[]byte
 			s     string
 		)
-		if dec.String(&s) || dec.Literal(&s) {
+		binary := dec.Special('~')
+		if binary && dec.Expect(dec.Literal(&s), "literal8") || !binary && dec.String(&s) {
 			b := []byte(s)
 			value = &b
-		} else if !dec.ExpectNIL() {
+		} else if binary || !dec.ExpectNIL() {
 			return dec.Err()
 		}
 

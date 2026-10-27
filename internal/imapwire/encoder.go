@@ -107,6 +107,16 @@ func (enc *Encoder) String(s string) *Encoder {
 	return enc.Quoted(s)
 }
 
+// String8 writes a string or literal8, preserving arbitrary binary data.
+func (enc *Encoder) String8(s string) *Encoder {
+	if strings.IndexByte(s, 0) >= 0 {
+		enc.Special('~')
+		enc.stringLiteral(s)
+		return enc
+	}
+	return enc.String(s)
+}
+
 func (enc *Encoder) validQuoted(s string) bool {
 	if len(s) > 4096 {
 		return false

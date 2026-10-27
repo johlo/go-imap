@@ -410,8 +410,14 @@ func (dec *Decoder) ExpectAString(ptr *string) bool {
 	if dec.Quoted(ptr) {
 		return true
 	}
+	if dec.Err() != nil {
+		return false
+	}
 	if dec.Literal(ptr) {
 		return true
+	}
+	if dec.Err() != nil {
+		return false
 	}
 	// We cannot do dec.Atom(ptr) here because sometimes mailbox names are unquoted,
 	// and they can contain special characters like `]`.
@@ -583,7 +589,7 @@ func (dec *Decoder) Literal(ptr *string) bool {
 	if dec.CheckBufferedLiteralFunc != nil {
 		if err := dec.CheckBufferedLiteralFunc(lit.Size(), nonSync); err != nil {
 			lit.cancel()
-			return false
+			return dec.returnErr(err)
 		}
 	}
 	var sb strings.Builder

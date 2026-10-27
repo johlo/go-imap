@@ -51,6 +51,11 @@ type Options struct {
 	//   - LIST-STATUS
 	//   - MOVE
 	//   - STATUS=SIZE
+	//
+	// METADATA and METADATA-SERVER additionally require SessionMetadata. Only
+	// the configured scope is enabled; metadata change notifications are not
+	// supported. SETMETADATA accepts up to MetadataMaxEntries entries of at
+	// most MetadataMaxSize bytes each.
 	Caps imap.CapSet
 	// Logger is a logger to print error messages. If nil, log.Default is used.
 	Logger Logger
